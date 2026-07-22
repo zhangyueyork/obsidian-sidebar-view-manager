@@ -1,0 +1,11 @@
+{
+	"id": "sidebar-view-manager",
+	"name": "Sidebar View Manager",
+	"version": "0.1.0",
+	"minAppVersion": "1.8.0",
+	"description": "List registered views and choose whether each appears in the left sidebar, right sidebar, or stays hidden.",
+	"author": "zhangyueyork",
+	"authorUrl": "https://github.com/zhangyueyork",
+	"isDesktopOnly": true
+}
+
