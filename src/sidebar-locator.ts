@@ -1,7 +1,7 @@
 import type { WorkspaceLeaf } from 'obsidian';
-import type { Placement } from './model';
+import type { Placement, SidebarSide } from './model';
 
-export type SidebarSide = Exclude<Placement, 'hidden'>;
+export type { SidebarSide } from './model';
 
 export interface PlacementSummary {
 	placement: Placement;

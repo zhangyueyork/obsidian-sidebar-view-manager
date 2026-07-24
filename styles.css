@@ -52,6 +52,62 @@
 	color: var(--text-muted);
 }
 
+.svm-weekly-note {
+	margin: 22px 0 18px;
+	padding: 16px 18px 4px;
+	border: 1px solid var(--svm-line);
+	border-radius: var(--radius-m);
+	background:
+		linear-gradient(135deg, var(--svm-accent-wash), transparent 46%),
+		var(--background-secondary);
+}
+
+.svm-weekly-note-title {
+	display: flex;
+	align-items: flex-start;
+	gap: 11px;
+}
+
+.svm-weekly-note-title > div {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+
+.svm-weekly-note-title span {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.svm-weekly-note-icon {
+	display: grid;
+	width: 32px;
+	height: 32px;
+	flex: 0 0 auto;
+	place-items: center;
+	border-radius: var(--radius-s);
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.svm-weekly-note-icon svg {
+	width: 17px;
+	height: 17px;
+}
+
+.svm-weekly-note-status {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 11px 0 4px 43px;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.svm-weekly-note .setting-item {
+	margin-left: 43px;
+}
+
 .svm-summary {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));

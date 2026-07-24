@@ -3,21 +3,38 @@ import { openPluginSettings } from './compatibility';
 import {
 	normalizeSettings,
 	type Placement,
+	type SidebarSide,
 	type SidebarViewManagerSettings,
 } from './model';
 import { SidebarViewManagerSettingTab } from './settings-tab';
 import { ViewInventory, type ViewDescriptor, type ViewInventorySnapshot } from './view-inventory';
 import { ViewReconciler } from './view-reconciler';
+import {
+	WeeklyNoteSlotController,
+	type WeeklyNoteSlotStatus,
+} from './weekly-note-slot';
 
 export default class SidebarViewManagerPlugin extends Plugin {
 	private pluginData!: SidebarViewManagerSettings;
 	private inventory!: ViewInventory;
 	private reconciler!: ViewReconciler;
+	private weeklyNoteSlot!: WeeklyNoteSlotController;
 
 	async onload(): Promise<void> {
 		this.pluginData = normalizeSettings(await this.loadData());
 		this.inventory = new ViewInventory(this.app);
 		this.reconciler = new ViewReconciler(this.app.workspace);
+		this.weeklyNoteSlot = new WeeklyNoteSlotController(
+			this.app,
+			this.pluginData.weeklyNote,
+			async () => {
+				await this.saveData(this.pluginData);
+			},
+		);
+		this.weeklyNoteSlot.startDailyTimer();
+		this.register(() => {
+			this.weeklyNoteSlot.dispose();
+		});
 
 		this.addSettingTab(new SidebarViewManagerSettingTab(this.app, this));
 		this.addCommand({
@@ -29,11 +46,34 @@ export default class SidebarViewManagerPlugin extends Plugin {
 				}
 			},
 		});
+		this.addCommand({
+			id: 'restore-current-weekly-note',
+			name: 'Restore current weekly note in sidebar',
+			callback: () => {
+				void this.runWeeklyNoteAction(() => this.weeklyNoteSlot.restoreNow());
+			},
+		});
+
+		this.registerEvent(
+			this.app.workspace.on('layout-change', () => {
+				this.weeklyNoteSlot.handleLayoutChange();
+			}),
+		);
+		this.registerDomEvent(window, 'focus', () => {
+			void this.runWeeklyNoteAction(() => this.weeklyNoteSlot.checkForNewDay(), false);
+		});
+		this.registerDomEvent(document, 'visibilitychange', () => {
+			if (document.visibilityState === 'visible') {
+				void this.runWeeklyNoteAction(() => this.weeklyNoteSlot.checkForNewDay(), false);
+			}
+		});
 
 		this.app.workspace.onLayoutReady(() => {
-			window.setTimeout(() => {
-				void this.applyStartupPreferences();
-			}, 250);
+			this.registerInterval(
+				window.setTimeout(() => {
+					void this.initializeWorkspace();
+				}, 250),
+			);
 		});
 	}
 
@@ -58,6 +98,43 @@ export default class SidebarViewManagerPlugin extends Plugin {
 			source: view.source,
 		};
 		await this.saveData(this.pluginData);
+	}
+
+	getWeeklyNoteStatus(): WeeklyNoteSlotStatus {
+		return this.weeklyNoteSlot.getStatus();
+	}
+
+	async setWeeklyNoteEnabled(enabled: boolean): Promise<void> {
+		await this.weeklyNoteSlot.setEnabled(enabled);
+	}
+
+	async setWeeklyNoteSide(side: SidebarSide): Promise<void> {
+		await this.weeklyNoteSlot.setSide(side);
+	}
+
+	async restoreWeeklyNoteNow(): Promise<void> {
+		await this.weeklyNoteSlot.restoreNow();
+	}
+
+	private async initializeWorkspace(): Promise<void> {
+		await this.applyStartupPreferences();
+		await this.runWeeklyNoteAction(() => this.weeklyNoteSlot.startup());
+	}
+
+	private async runWeeklyNoteAction(
+		action: () => Promise<void>,
+		showError = true,
+	): Promise<void> {
+		try {
+			await action();
+		} catch (error) {
+			if (!showError) {
+				console.error('Sidebar View Manager weekly note check failed.', error);
+				return;
+			}
+			const message = error instanceof Error ? error.message : String(error);
+			new Notice(`Current weekly note: ${message}`, 7000);
+		}
 	}
 
 	private async applyStartupPreferences(): Promise<void> {

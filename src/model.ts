@@ -1,8 +1,9 @@
-export const DATA_VERSION = 1;
+export const DATA_VERSION = 2;
 
 export const PLACEMENTS = ['left', 'right', 'hidden'] as const;
 
 export type Placement = (typeof PLACEMENTS)[number];
+export type SidebarSide = Exclude<Placement, 'hidden'>;
 
 export interface ViewPreference {
 	placement: Placement;
@@ -14,16 +15,29 @@ export interface KnownViewMetadata {
 	source?: string;
 }
 
+export interface WeeklyNoteSlotSettings {
+	enabled: boolean;
+	side: SidebarSide;
+	lastPath?: string;
+	resolvedWeekKey?: string;
+	lastCheckDate?: string;
+}
+
 export interface SidebarViewManagerSettings {
 	version: number;
 	preferences: Record<string, ViewPreference>;
 	knownViews: Record<string, KnownViewMetadata>;
+	weeklyNote: WeeklyNoteSlotSettings;
 }
 
 export const DEFAULT_SETTINGS: SidebarViewManagerSettings = {
 	version: DATA_VERSION,
 	preferences: {},
 	knownViews: {},
+	weeklyNote: {
+		enabled: false,
+		side: 'right',
+	},
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -32,6 +46,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isPlacement(value: unknown): value is Placement {
 	return typeof value === 'string' && PLACEMENTS.includes(value as Placement);
+}
+
+function isSidebarSide(value: unknown): value is SidebarSide {
+	return value === 'left' || value === 'right';
 }
 
 function cleanOptionalString(value: unknown): string | undefined {
@@ -70,10 +88,19 @@ export function normalizeSettings(value: unknown): SidebarViewManagerSettings {
 		}
 	}
 
+	const weeklyNoteValue = isRecord(value.weeklyNote) ? value.weeklyNote : {};
+	const weeklyNote: WeeklyNoteSlotSettings = {
+		enabled: weeklyNoteValue.enabled === true,
+		side: isSidebarSide(weeklyNoteValue.side) ? weeklyNoteValue.side : 'right',
+		lastPath: cleanOptionalString(weeklyNoteValue.lastPath),
+		resolvedWeekKey: cleanOptionalString(weeklyNoteValue.resolvedWeekKey),
+		lastCheckDate: cleanOptionalString(weeklyNoteValue.lastCheckDate),
+	};
+
 	return {
 		version: DATA_VERSION,
 		preferences,
 		knownViews,
+		weeklyNote,
 	};
 }
-

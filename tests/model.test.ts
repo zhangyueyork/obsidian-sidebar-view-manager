@@ -7,6 +7,10 @@ describe('normalizeSettings', () => {
 			version: DATA_VERSION,
 			preferences: {},
 			knownViews: {},
+			weeklyNote: {
+				enabled: false,
+				side: 'right',
+			},
 		});
 	});
 
@@ -22,12 +26,25 @@ describe('normalizeSettings', () => {
 					outline: { displayName: ' Outline ', icon: 'list', source: '' },
 					broken: 'nope',
 				},
+				weeklyNote: {
+					enabled: true,
+					side: 'left',
+					lastPath: ' Weekly/2026-W30.md ',
+					resolvedWeekKey: '2026-07-20',
+					lastCheckDate: '2026-07-23',
+				},
 			}),
 		).toEqual({
 			version: DATA_VERSION,
 			preferences: { outline: { placement: 'right' } },
 			knownViews: { outline: { displayName: 'Outline', icon: 'list', source: undefined } },
+			weeklyNote: {
+				enabled: true,
+				side: 'left',
+				lastPath: 'Weekly/2026-W30.md',
+				resolvedWeekKey: '2026-07-20',
+				lastCheckDate: '2026-07-23',
+			},
 		});
 	});
 });
-

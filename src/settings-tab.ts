@@ -9,7 +9,7 @@ import {
 	type SettingDefinitionItem,
 } from 'obsidian';
 import type SidebarViewManagerPlugin from './main';
-import { PLACEMENTS, type Placement } from './model';
+import { PLACEMENTS, type Placement, type SidebarSide } from './model';
 import type { ViewDescriptor } from './view-inventory';
 
 const PLACEMENT_LABELS: Record<Placement, string> = {
@@ -21,6 +21,7 @@ const PLACEMENT_LABELS: Record<Placement, string> = {
 export class SidebarViewManagerSettingTab extends PluginSettingTab {
 	private query = '';
 	private readonly busyViewTypes = new Set<string>();
+	private weeklyNoteBusy = false;
 
 	constructor(app: App, private readonly manager: SidebarViewManagerPlugin) {
 		super(app, manager);
@@ -56,6 +57,8 @@ export class SidebarViewManagerSettingTab extends PluginSettingTab {
 			cls: 'svm-subtitle',
 		});
 
+		this.renderWeeklyNoteSettings(containerEl);
+
 		const snapshot = this.manager.getInventorySnapshot();
 		const configuredCount = snapshot.views.filter((view) => this.manager.isConfigured(view.type)).length;
 		this.renderSummary(containerEl, snapshot.views.length, configuredCount, snapshot.mode);
@@ -85,6 +88,87 @@ export class SidebarViewManagerSettingTab extends PluginSettingTab {
 
 		const list = containerEl.createDiv({ cls: 'svm-view-list' });
 		this.renderRows(list, snapshot.views);
+	}
+
+	private renderWeeklyNoteSettings(containerEl: HTMLElement): void {
+		const status = this.manager.getWeeklyNoteStatus();
+		const section = containerEl.createDiv({ cls: 'svm-weekly-note' });
+		const title = section.createDiv({ cls: 'svm-weekly-note-title' });
+		setIcon(title.createSpan({ cls: 'svm-weekly-note-icon' }), 'calendar-days');
+		const titleText = title.createDiv();
+		titleText.createEl('strong', { text: 'Current weekly note' });
+		titleText.createSpan({
+			text: 'Let Calendar open or create this week’s note, then keep it in one sidebar tab.',
+		});
+
+		const statusLine = section.createDiv({ cls: 'svm-weekly-note-status' });
+		statusLine.createSpan({
+			cls: `svm-status-dot ${status.available ? 'is-registry' : ''}`,
+		});
+		statusLine.createSpan({ text: status.detail });
+
+		new Setting(section)
+			.setName('Keep current weekly note in sidebar')
+			.setDesc('Checks the calendar week once per day. Calendar remains responsible for creation prompts and templates.')
+			.addToggle((toggle) => {
+				toggle.setValue(status.enabled);
+				toggle.setDisabled(this.weeklyNoteBusy || (!status.available && !status.enabled));
+				toggle.onChange((enabled) => {
+					void this.runWeeklyNoteAction(
+						() => this.manager.setWeeklyNoteEnabled(enabled),
+						enabled ? 'Current weekly note enabled.' : 'Current weekly note disabled.',
+					);
+				});
+			});
+
+		new Setting(section)
+			.setName('Sidebar')
+			.setDesc('The tab can still be dragged to your preferred position within this sidebar.')
+			.addDropdown((dropdown) => {
+				dropdown.addOption('left', 'Left');
+				dropdown.addOption('right', 'Right');
+				dropdown.setValue(status.side);
+				dropdown.setDisabled(this.weeklyNoteBusy || !status.enabled);
+				dropdown.onChange((value) => {
+					void this.runWeeklyNoteAction(
+						() => this.manager.setWeeklyNoteSide(value as SidebarSide),
+						`Current weekly note → ${value === 'left' ? 'Left' : 'Right'}`,
+					);
+				});
+			});
+
+		new Setting(section)
+			.setName('Restore now')
+			.setDesc('Reopens a tab closed during this session or asks calendar for the current week.')
+			.addButton((button) => {
+				button.setButtonText(status.pending ? 'Waiting for Calendar…' : 'Restore');
+				button.setIcon('refresh-cw');
+				button.setDisabled(this.weeklyNoteBusy || status.pending || !status.available);
+				button.onClick(() => {
+					void this.runWeeklyNoteAction(
+						() => this.manager.restoreWeeklyNoteNow(),
+						'Calendar is handling the current weekly note.',
+					);
+				});
+			});
+	}
+
+	private async runWeeklyNoteAction(action: () => Promise<void>, success: string): Promise<void> {
+		if (this.weeklyNoteBusy) {
+			return;
+		}
+		this.weeklyNoteBusy = true;
+		this.refresh();
+		try {
+			await action();
+			new Notice(success);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			new Notice(`Current weekly note: ${message}`, 7000);
+		} finally {
+			this.weeklyNoteBusy = false;
+			this.refresh();
+		}
 	}
 
 	private refresh(): void {
