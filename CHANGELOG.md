@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Reliability
+
+- Reuse the remembered weekly-note sidebar tab after restart so upper/lower split placement remains unchanged during weekly-note replacement.
+- Fall back to Calendar's guarded weekly-note opener when Obsidian refuses Calendar's registered command.
+
 ## 0.2.0 - 2026-07-24
 
 ### Features

@@ -15,8 +15,13 @@ interface CalendarOptions {
 	weeklyNoteFolder?: unknown;
 }
 
+interface CalendarViewLike {
+	openOrCreateWeeklyNote?: (date: MomentLike, inNewSplit: boolean) => unknown;
+}
+
 interface CalendarPluginLike {
 	options?: CalendarOptions;
+	view?: CalendarViewLike;
 }
 
 interface PluginManagerLike {
@@ -24,12 +29,15 @@ interface PluginManagerLike {
 }
 
 interface CommandManagerLike {
-	executeCommandById: (id: string) => boolean;
+	executeCommandById: (id: string) => boolean | void;
 }
 
 interface AppWithInternals {
 	plugins?: PluginManagerLike;
 	commands?: CommandManagerLike;
+	workspace?: {
+		getLeavesOfType?: (type: string) => Array<{ view?: CalendarViewLike }>;
+	};
 }
 
 export interface WeeklyNoteTarget {
@@ -85,13 +93,17 @@ export class CalendarWeeklyNoteCommandAdapter {
 
 	getAvailability(): CalendarAvailability {
 		const app = this.app as unknown as AppWithInternals;
-		if (!app.plugins?.getPlugin(CALENDAR_PLUGIN_ID)) {
+		const plugin = app.plugins?.getPlugin(CALENDAR_PLUGIN_ID) as CalendarPluginLike | null;
+		if (!plugin) {
 			return {
 				available: false,
 				message: 'Calendar is not enabled.',
 			};
 		}
-		if (typeof app.commands?.executeCommandById !== 'function') {
+		if (
+			typeof app.commands?.executeCommandById !== 'function' &&
+			typeof this.getOpenOrCreateWeeklyNote() !== 'function'
+		) {
 			return {
 				available: false,
 				message: 'Calendar commands are unavailable in this Obsidian version.',
@@ -114,9 +126,33 @@ export class CalendarWeeklyNoteCommandAdapter {
 
 	executeOpenCurrent(): boolean {
 		const app = this.app as unknown as AppWithInternals;
-		if (typeof app.commands?.executeCommandById !== 'function') {
+		if (typeof app.commands?.executeCommandById === 'function') {
+			const executed = app.commands.executeCommandById(OPEN_WEEKLY_NOTE_COMMAND_ID);
+			if (executed === true) {
+				return true;
+			}
+		}
+
+		const openOrCreate = this.getOpenOrCreateWeeklyNote();
+		if (typeof openOrCreate !== 'function') {
 			return false;
 		}
-		return app.commands.executeCommandById(OPEN_WEEKLY_NOTE_COMMAND_ID);
+
+		openOrCreate(this.now(), false);
+		return true;
+	}
+
+	private getOpenOrCreateWeeklyNote(): CalendarViewLike['openOrCreateWeeklyNote'] {
+		const app = this.app as unknown as AppWithInternals;
+		const plugin = app.plugins?.getPlugin(CALENDAR_PLUGIN_ID) as CalendarPluginLike | null;
+		const pluginMethod = plugin?.view?.openOrCreateWeeklyNote;
+		if (typeof pluginMethod === 'function') {
+			return pluginMethod;
+		}
+
+		return app.workspace
+			?.getLeavesOfType?.(CALENDAR_PLUGIN_ID)
+			.find((leaf) => typeof leaf.view?.openOrCreateWeeklyNote === 'function')
+			?.view?.openOrCreateWeeklyNote;
 	}
 }

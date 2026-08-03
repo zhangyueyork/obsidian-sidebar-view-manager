@@ -99,4 +99,51 @@ describe('CalendarWeeklyNoteCommandAdapter', () => {
 			message: 'Calendar is not enabled.',
 		});
 	});
+
+	it('falls back to the Calendar view when Obsidian does not confirm the command', () => {
+		const executeCommandById = vi.fn(() => undefined);
+		const openOrCreateWeeklyNote = vi.fn();
+		const now = new FakeMoment();
+		const app = {
+			plugins: {
+				getPlugin: vi.fn(() => ({
+					options: {},
+					view: { openOrCreateWeeklyNote },
+				})),
+			},
+			commands: { executeCommandById },
+		} as unknown as App;
+
+		expect(new CalendarWeeklyNoteCommandAdapter(app, () => now).executeOpenCurrent()).toBe(
+			true,
+		);
+		expect(executeCommandById).toHaveBeenCalledWith('calendar:open-weekly-note');
+		expect(openOrCreateWeeklyNote).toHaveBeenCalledWith(now, false);
+	});
+
+	it('reports failure when neither Calendar entry point is callable', () => {
+		const app = {
+			plugins: { getPlugin: vi.fn(() => ({ options: {} })) },
+			commands: { executeCommandById: vi.fn(() => false) },
+		} as unknown as App;
+
+		expect(new CalendarWeeklyNoteCommandAdapter(app).executeOpenCurrent()).toBe(false);
+	});
+
+	it('uses the live Calendar workspace view when the plugin does not expose its view', () => {
+		const openOrCreateWeeklyNote = vi.fn();
+		const now = new FakeMoment();
+		const app = {
+			plugins: { getPlugin: vi.fn(() => ({ options: {} })) },
+			commands: { executeCommandById: vi.fn(() => undefined) },
+			workspace: {
+				getLeavesOfType: vi.fn(() => [{ view: { openOrCreateWeeklyNote } }]),
+			},
+		} as unknown as App;
+
+		expect(new CalendarWeeklyNoteCommandAdapter(app, () => now).executeOpenCurrent()).toBe(
+			true,
+		);
+		expect(openOrCreateWeeklyNote).toHaveBeenCalledWith(now, false);
+	});
 });

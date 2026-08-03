@@ -177,6 +177,47 @@ describe('WeeklyNoteSlotController', () => {
 		expect(settings.resolvedWeekKey).toBe('2026-07-27');
 	});
 
+	it('reuses the remembered sidebar leaf after restart to preserve its split position', async () => {
+		const previousWeeklyFile = file('Weekly/2026-07-20.md');
+		const currentWeeklyFile = file('Weekly/2026-07-27.md');
+		const lowerRightLeaf = createLeaf(previousWeeklyFile.path, 'right');
+		const source = createLeaf('Notes/original.md', 'main');
+		const fixture = testApp(
+			[lowerRightLeaf, source],
+			[previousWeeklyFile, currentWeeklyFile],
+		);
+		fixture.setActive(source);
+		const settings: WeeklyNoteSlotSettings = {
+			enabled: true,
+			side: 'right',
+			lastPath: previousWeeklyFile.path,
+			resolvedWeekKey: '2026-07-20',
+			lastCheckDate: '2026-07-27',
+		};
+		const controller = new WeeklyNoteSlotController(
+			fixture.app,
+			settings,
+			async () => undefined,
+			calendarAdapter(
+				target(currentWeeklyFile.path, '2026-07-27', '2026-07-27'),
+			),
+		);
+
+		await controller.restoreNow();
+		await source.openFile(currentWeeklyFile);
+		fixture.setActive(source);
+		fixture.emitFileOpen(currentWeeklyFile);
+
+		await vi.waitFor(() => {
+			expect(settings.lastPath).toBe(currentWeeklyFile.path);
+		});
+		expect(leafPath(lowerRightLeaf)).toBe(currentWeeklyFile.path);
+		expect(leafPath(source)).toBe('Notes/original.md');
+		expect(fixture.workspace.getRightLeaf).not.toHaveBeenCalled();
+		expect(lowerRightLeaf.detach).not.toHaveBeenCalled();
+		expect(fixture.leaves).toHaveLength(2);
+	});
+
 	it('treats removing the owned leaf as a manual close for the session', async () => {
 		const weeklyFile = file('Weekly/2026-07-20.md');
 		const rightLeaf = createLeaf(weeklyFile.path, 'right');

@@ -33,6 +33,8 @@ The feature restores the saved weekly note on startup. Once per local day it com
 
 Closing the dedicated tab keeps it closed for the rest of the session. Use **Restore now** or the **Sidebar View Manager: Restore current weekly note in sidebar** command to reopen it.
 
+To keep the weekly note in a specific upper or lower sidebar region, drag its dedicated tab to that region once. Future weekly-note replacements, including the first replacement after an Obsidian restart, reuse that exact tab instead of creating another sidebar region.
+
 ## Compatibility note
 
 Obsidian's public API can open and manage workspace leaves but cannot enumerate all registered view types. This plugin reads the internal view registry through a guarded, read-only compatibility adapter. If that internal shape changes, the manager remains usable in fallback mode with a smaller inventory.

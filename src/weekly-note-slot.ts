@@ -285,6 +285,10 @@ export class WeeklyNoteSlotController {
 				? this.ownedLeaf
 				: this.findRememberedSidebarLeaf();
 
+		target ??=
+			previousSlot && locateSidebarLeaf(previousSlot) === desiredSide
+				? previousSlot
+				: null;
 		target ??= this.findSidebarLeaf(file.path, desiredSide);
 		const existingLeaves = new Set<WorkspaceLeaf>();
 		this.app.workspace.iterateAllLeaves((leaf) => existingLeaves.add(leaf));

@@ -128,3 +128,55 @@ The settings page adds an enable toggle, left/right selection, compatibility/sta
 | Native Markdown leaf | Custom rendered item view | Preserves normal editing behavior |
 | Briefly observe and relocate Calendar's opened file | Patch Calendar internals; replace workspace methods | Avoids invasive monkey-patching and keeps failure recoverable |
 | Respect manual close for the session | Immediately recreate | Avoids fighting deliberate user actions |
+
+## Fixed lower weekly-note slot
+
+### Understanding summary
+
+- The right sidebar is already divided into upper and lower regions.
+- The weekly note currently occupies a Markdown leaf in the lower region.
+- Replacing the weekly note must preserve that lower region and its tab position.
+- The plugin should replace only the file displayed by the remembered weekly-note leaf.
+- It must not infer placement from screen coordinates or rebuild the sidebar split.
+- If opening the new weekly note fails, the previous leaf state must be restored.
+- Creating an exact upper/lower split from scratch remains outside this change.
+
+### Assumptions and non-functional requirements
+
+- The user performs the one-time placement of the weekly-note leaf in the desired lower region.
+- Obsidian restores that leaf as part of the workspace layout on startup.
+- The remembered weekly-note path uniquely identifies the reusable sidebar leaf.
+- Reusing an existing leaf adds no polling, vault scan, network access, or meaningful startup cost.
+- The feature continues to support either sidebar; “lower” is preserved by leaf identity rather than stored as a new side value.
+- Existing workspace regions and unrelated tabs must not be detached or reordered.
+
+There are no unresolved design questions after user confirmation.
+
+### Considered approaches
+
+1. **Reuse the remembered weekly-note leaf — selected.** Find the sidebar leaf displaying `lastPath` and open the new weekly note in that same leaf.
+2. **Detect the lower region structurally.** Inspect workspace split internals and choose the last child. This is more fragile across Obsidian releases and unnecessary when a correctly placed leaf already exists.
+3. **Create or move a region on every update.** This would fight the saved workspace layout and risk reordering unrelated sidebar tabs.
+
+### Final design
+
+During `ensureSlot`, the controller first reuses the live `ownedLeaf` when it is on the selected side. After a restart, when `ownedLeaf` is not yet known, it finds the sidebar leaf displaying the saved `lastPath` and promotes that remembered leaf to the target slot before asking Obsidian for a new sidebar leaf.
+
+The target leaf's original `ViewState` is captured before opening the new weekly note. If the open or verification fails, that state is restored. Once the replacement succeeds, the same leaf becomes `ownedLeaf`; no sidebar split or tab is created, moved, or detached. A new sidebar leaf is requested only when neither a live owned leaf nor a remembered weekly-note leaf exists.
+
+### Testing strategy
+
+- Add a restart-style test where the old weekly note is in a lower right-sidebar leaf and `ownedLeaf` is initially unknown.
+- Verify the new weekly note opens in that exact leaf.
+- Verify no new right-sidebar leaf is requested and the old leaf is not detached.
+- Preserve the existing rollback test for a genuinely new target leaf.
+- Run lint, unit tests, type checking, and the production bundle.
+
+### Decision log
+
+| Decision | Alternatives | Reason |
+| --- | --- | --- |
+| Preserve the lower slot by leaf identity | Screen coordinates; split child index | Stable across window sizes and avoids workspace internals |
+| Reuse the remembered `lastPath` leaf after restart | Always create a new right leaf | Keeps the user's lower-region placement |
+| Roll back the same leaf on failure | Keep a duplicate old leaf | Preserves layout without duplicate weekly-note tabs |
+| Do not create lower regions automatically | Rebuild sidebar splits | The user already owns the desired layout; scope stays minimal |
