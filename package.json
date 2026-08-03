@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-sidebar-view-manager",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "Discover and place registered Obsidian views in either sidebar from one settings list.",
 	"main": "main.js",
 	"type": "module",
